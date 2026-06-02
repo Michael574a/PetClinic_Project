@@ -29,7 +29,8 @@ jobs:
         cd app
         mvn clean verify
 
-    # --- PASO DEVSECOPS: ANÁLISIS ESTÁTICO DE CALIDAD ---
+
+# --- PASO DEVSECOPS: ANÁLISIS ESTÁTICO DE CALIDAD ---
     # Nota: Requiere configurar SONAR_TOKEN en los Secrets de tu repositorio de GitHub
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master
@@ -40,9 +41,9 @@ jobs:
         projectBaseDir: app
         args: >
           -Dsonar.projectKey=Michael574a_PetClinic_Project
-          -Dsonar.organization=michael574a
+          -Dsonar.organization=Michael574a
           -Dsonar.qualitygate.wait=true
-
+          -Dsonar.java.binaries=target/classes
   docker-build:
     name: Containerize & Security Scan
     needs: build-and-test
