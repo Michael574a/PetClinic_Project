@@ -1,3 +1,50 @@
 ﻿apiVersion: apps/v1
 kind: Deployment
-... (todo el contenido)
+metadata:
+  name: petclinic-deployment
+  namespace: devops-lab
+  labels:
+    app: petclinic
+spec:
+  replicas: 2 # Configuración de alta disponibilidad base
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: petclinic
+  template:
+    metadata:
+      labels:
+        app: petclinic
+    spec:
+      containers:
+      - name: petclinic
+        image: ghcr.io/Michael574a/PetClinic_Project/petclinic:tag # Reemplaza con tu ruta real de GHCR
+        ports:
+        - containerPort: 8080
+        
+        # Límites de control de recursos del Pod
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1024Mi"
+            cpu: "500m"
+            
+        # Sondas de Ciclo de Vida conectadas con Spring Boot Actuator
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10

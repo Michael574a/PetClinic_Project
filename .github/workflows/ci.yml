@@ -1,0 +1,91 @@
+name: CI Pipeline - Spring PetClinic
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    name: Build, Test & SAST
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Necesario para un análisis preciso de SonarCloud
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Compile and Run Unit Tests with Maven
+      run: |
+        cd app
+        mvn clean verify
+
+    # --- PASO DEVSECOPS: ANÁLISIS ESTÁTICO DE CALIDAD ---
+    # Nota: Requiere configurar SONAR_TOKEN en los Secrets de tu repositorio de GitHub
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        projectBaseDir: app
+        args: >
+          -Dsonar.projectKey=Michael574a_PetClinic_Project
+          -Dsonar.organization=michael574a
+          -Dsonar.qualitygate.wait=true
+
+  docker-build:
+    name: Containerize & Security Scan
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to GitHub Container Registry (GHCR)
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # --- PASO DEVSECOPS: ESCANEO DE VULNERABILIDADES ---
+    - name: Build local image for security scan
+      run: |
+        docker build -t petclinic:test ./app
+
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'petclinic:test'
+        format: 'table'
+        exit-code: '1' # Bloquea el pipeline si encuentra vulnerabilidades CRÍTICAS
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL'
+
+    # Si Trivy no encuentra fallos críticos, se procede a publicar la imagen de producción
+    - name: Push Image to GHCR
+      uses: docker/build-push-action@v5
+      with:
+        context: ./app
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/petclinic:latest
+          ghcr.io/${{ github.repository }}/petclinic:${{ github.sha }}
