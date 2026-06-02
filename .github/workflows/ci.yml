@@ -80,7 +80,7 @@ jobs:
         vuln-type: 'os,library'
         severity: 'CRITICAL'
 
-    # Si Trivy no encuentra fallos críticos, se procede a publicar la imagen de producción
+    # Si Triv no encuentra fallos críticos, se procede a publicar la imagen de producción
     - name: Push Image to GHCR
       uses: docker/build-push-action@v5
       with:
